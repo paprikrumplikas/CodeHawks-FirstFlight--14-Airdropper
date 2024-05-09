@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-/*import { MerkleAirdrop, IERC20 } from "../src/MerkleAirdrop.sol";
+import { MerkleAirdrop, IERC20 } from "../src/MerkleAirdrop.sol";
 import { AirdropToken } from "./mocks/AirdropToken.sol";
 import { _CheatCodes } from "./mocks/CheatCodes.t.sol";
 import { Test } from "../lib/forge-std/src/Test.sol";
@@ -11,9 +11,12 @@ import { IERC20Errors } from "@openzeppelin/contracts//interfaces/draft-IERC6093
 // so that we can test on the forked network with real USDC contract
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract MerkleAirdropTest is Test {
+contract MerkleAirdropTest_forkedTests is Test {
     MerkleAirdrop public airdrop;
-    AirdropToken public token;
+    //AirdropToken public token;
+
+    address public UsdcAddress = 0x1d17CBcF0D6D143135aE902365D2E5e2A16538D4;
+    IERC20 public token;
 
     // @note merkleRoot is correct here but incorrect in the deploy script
     bytes32 public merkleRoot = 0x3b2e22da63ae414086bec9c9da6b685f790c6fab200c7918f2879f08793d77bd;
@@ -45,14 +48,18 @@ contract MerkleAirdropTest is Test {
     bytes32 proofTwo_4 = 0xdcad361f30c4a5b102a90b4ec310ffd75c577ccdff1c678adb20a6f02e923366;
     bytes32[] proof_4 = [proofOne_4, proofTwo_4];
 
+    address deployerAddress = 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045;
+
     function setUp() public {
-        token = new AirdropToken();
+        //token = new AirdropToken();
+        token = IERC20(0x1d17CBcF0D6D143135aE902365D2E5e2A16538D4);
+        vm.prank(deployerAddress);
         airdrop = new MerkleAirdrop(merkleRoot, token);
-        token.mint(address(this), amountToSend);
-        token.transfer(address(airdrop), amountToSend);
+        //token.mint(address(this), amountToSend);
+        //token.transfer(address(airdrop), amountToSend);
+        deal(address(token), address(airdrop), amountToSend);
     }
 
-    // NOT a bug
     function testUsersCanClaim() public {
         uint256 startingBalance = token.balanceOf(collectorOne);
         vm.deal(collectorOne, airdrop.getFee());
@@ -61,7 +68,7 @@ contract MerkleAirdropTest is Test {
         airdrop.claim{ value: airdrop.getFee() }(collectorOne, amountToCollect, proof);
         vm.stopPrank();
 
-        uint256 endingBalance = token.balanceOf(user);
+        uint256 endingBalance = token.balanceOf(collectorOne);
         assertEq(endingBalance - startingBalance, amountToCollect);
     }
 
@@ -97,7 +104,7 @@ contract MerkleAirdropTest is Test {
         assertEq(endingBalance - startingBalance, amountToCollect * noClaims);
     }
 
-    // @audit bug
+    // NOT a bug
     function testAnyUserCanClaim() public {
         address user = makeAddr("user");
         uint256 startingBalance = token.balanceOf(user);
@@ -108,7 +115,7 @@ contract MerkleAirdropTest is Test {
         airdrop.claim{ value: airdrop.getFee() }(collectorOne, amountToCollect, proof);
         vm.stopPrank();
 
-        uint256 endingBalance = token.balanceOf(collectorOne);
+        uint256 endingBalance = token.balanceOf(user);
         assertEq(endingBalance - startingBalance, amountToCollect);
     }
 
@@ -158,7 +165,11 @@ contract MerkleAirdropTest is Test {
         vm.stopPrank();
 
         address user = makeAddr("user");
-        //vm.prank(user);   // as expected, user cant withdraw, only the owner
+        vm.prank(user);
+        vm.expectRevert();
+        airdrop.claimFees();
+
+        vm.prank(deployerAddress);
         airdrop.claimFees();
     }
 
@@ -186,7 +197,8 @@ contract MerkleAirdropTest is Test {
 
         // setting up balances
         vm.deal(collectorOne, airdrop_bad.getFee());
-        token.mint(address(airdrop_bad), 4 * 25 * 1e6);
+        deal(address(token), address(airdrop_bad), 4 * 25 * 1e6);
+        //token.mint(address(airdrop_bad), 4 * 25 * 1e6);
         assert(IERC20(token).balanceOf(address(airdrop_bad)) == 4 * 25 * 1e6);
 
         // @note SCENARIO 1: collector tries to collect 25 USDC
@@ -223,4 +235,4 @@ contract MerkleAirdropTest is Test {
         vm.expectRevert(encodedRevertReason);
         airdrop_bad.claim{ value: fee }(collectorOne, amountEncodedInRoot, proof_bad);
     }
-}*/
+}

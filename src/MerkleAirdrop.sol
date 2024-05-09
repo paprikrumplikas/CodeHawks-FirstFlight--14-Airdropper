@@ -17,6 +17,7 @@ contract MerkleAirdrop is Ownable {
     bytes32 private immutable i_merkleRoot;
 
     event Claimed(address account, uint256 amount);
+    // @audit unused event
     event MerkleRootUpdated(bytes32 newMerkleRoot);
 
     /*//////////////////////////////////////////////////////////////
@@ -28,10 +29,13 @@ contract MerkleAirdrop is Ownable {
     }
 
     function claim(address account, uint256 amount, bytes32[] calldata merkleProof) external payable {
+        // @audit this can be called any number of times by anyone
         if (msg.value != FEE) {
             revert MerkleAirdrop__InvalidFeeAmount();
         }
+        // @audit is this correct?
         bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(account, amount))));
+
         if (!MerkleProof.verify(merkleProof, i_merkleRoot, leaf)) {
             revert MerkleAirdrop__InvalidProof();
         }
